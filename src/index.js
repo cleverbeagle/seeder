@@ -31,7 +31,7 @@ class Seeder {
     if (this.options.wipe) this.collection.remove({});
 
     const isDataArray = data instanceof Array;
-    const loopLength = isDataArray ? data.length : this.options.min;
+    const loopLength = isDataArray ? data.length : this.options.count;
     const hasData = this.checkForExistingData();
     const collectionName = this.collection._name;
     const isUsers = collectionName === 'users';
@@ -56,7 +56,7 @@ class Seeder {
 
   checkForExistingData() {
     let existingCount = this.collection.find().count();
-    return this.options.min ? (existingCount >= this.options.min) : (existingCount > 0);
+    return this.options.count ? (existingCount >= this.options.count) : (existingCount > 0);
   }
 
   environmentAllowed() {
