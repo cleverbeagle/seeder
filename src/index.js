@@ -1,3 +1,5 @@
+import faker from 'faker';
+
 class Seeder {
   constructor(collection, options) {
     if (!collection || !options) {
@@ -10,7 +12,7 @@ class Seeder {
     if (Meteor && Meteor.isServer) {
       this.seed();
     } else {
-      throw new Error('Seeder is only intended to be run in a Meteor server environment.');
+      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://packages.cleverbeagle.com/seeder/usage for more.');
     }
   }
 
@@ -26,7 +28,6 @@ class Seeder {
   }
 
   sow(data) {
-    // Wipe any existing data first.
     if (this.options.wipe) this.collection.remove({});
 
     const isDataArray = data instanceof Array;
@@ -37,10 +38,8 @@ class Seeder {
     const environmentAllowed = this.environmentAllowed();
 
     if (!hasData && environmentAllowed) {
-      const errors = [];
-
       for (let i = 0; i < loopLength; i++) {
-        const value = isDataArray ? data[i] : data(i);
+        const value = isDataArray ? data[i] : data(i, faker);
 
         try {
           if (isUsers) {
@@ -49,11 +48,9 @@ class Seeder {
             this.collection.insert(value);
           }
         } catch (exception) {
-          errors.push({ exception });
+          console.warn(exception);
         }
       }
-
-      throw new Error(`The following errors occurred while seeding "${collectionName}": \n\n ${errors}`);
     }
   }
 
@@ -69,14 +66,17 @@ class Seeder {
   }
 
   createUser(user) {
-    const roles = user.roles;
-    const isExistingUser = this.collection.findOne({ 'emails.address': user.email });
+    const userToCreate = user;
+    const isExistingUser = this.collection.findOne({ 'emails.address': userToCreate.email });
     if (!isExistingUser) {
-      delete user.roles;
-      const userId = Accounts.createUser(user);
-      if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, user.roles);
+      const roles = userToCreate.roles;
+      if (roles) delete userToCreate.roles;
+      const userId = Accounts.createUser(userToCreate);
+      if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
     }
   }
 }
 
-export default (collection, options) => new Seeder(collection, options);
+export default (collection, options) => {
+  return new Seeder(collection, options);
+}
