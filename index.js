@@ -22,11 +22,8 @@ var Seeder = function () {
       throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collectionName, options).');
     }
 
-    this.collection = this.validateCollection(collection);
-    this.options = options;
-
     if (Meteor && Meteor.isServer) {
-      this.seed();
+      this.seed(this.validateCollection(collection), options);
     } else {
       throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://packages.cleverbeagle.com/seeder/usage for more.');
     }
@@ -40,25 +37,23 @@ var Seeder = function () {
     }
   }, {
     key: 'seed',
-    value: function seed() {
-      var _options = this.options,
-          data = _options.data,
-          model = _options.model;
+    value: function seed(collection, options) {
+      var data = options.data,
+          model = options.model;
 
-      if (data && model) throw new Error('Please choose to seed from either a data array or a model.');
-      this.sow(data || model);
+      if (data) this.sow(data, collection, options);
+      if (model) this.sow(model, collection, options);
     }
   }, {
     key: 'sow',
-    value: function sow(data) {
-      if (this.options.wipe) this.collection.remove({});
-
+    value: function sow(data, collection, options) {
+      if (options.wipe) collection.remove({});
       var isDataArray = data instanceof Array;
-      var loopLength = isDataArray ? data.length : this.options.min;
-      var hasData = this.checkForExistingData();
-      var collectionName = this.collection._name;
+      var loopLength = isDataArray ? data.length : options.modelCount;
+      var hasData = options.noLimit ? false : this.checkForExistingData(collection, options.modelCount);
+      var collectionName = collection._name;
       var isUsers = collectionName === 'users';
-      var environmentAllowed = this.environmentAllowed();
+      var environmentAllowed = this.environmentAllowed(options.environments);
 
       if (!hasData && environmentAllowed) {
         for (var i = 0; i < loopLength; i++) {
@@ -66,9 +61,9 @@ var Seeder = function () {
 
           try {
             if (isUsers) {
-              this.createUser(value);
+              this.createUser(collection, value);
             } else {
-              this.collection.insert(value);
+              this.createData(collection, value);
             }
           } catch (exception) {
             console.warn(exception);
@@ -78,28 +73,40 @@ var Seeder = function () {
     }
   }, {
     key: 'checkForExistingData',
-    value: function checkForExistingData() {
-      var existingCount = this.collection.find().count();
-      return this.options.min ? existingCount >= this.options.min : existingCount > 0;
+    value: function checkForExistingData(collection, modelCount) {
+      var existingCount = collection.find().count();
+      return modelCount ? existingCount >= modelCount : existingCount > 0;
     }
   }, {
     key: 'environmentAllowed',
-    value: function environmentAllowed() {
-      var environments = this.options.environments;
+    value: function environmentAllowed(environments) {
       if (environments) return environments.indexOf(process.env.NODE_ENV) > -1;
       return false;
     }
   }, {
     key: 'createUser',
-    value: function createUser(user) {
+    value: function createUser(collection, user) {
       var userToCreate = user;
-      var isExistingUser = this.collection.findOne({ 'emails.address': userToCreate.email });
+      var isExistingUser = collection.findOne({ 'emails.address': userToCreate.email });
       if (!isExistingUser) {
         var roles = userToCreate.roles;
         if (roles) delete userToCreate.roles;
         var userId = Accounts.createUser(userToCreate);
         if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
+        if (userToCreate.data) this.seedDependent(userId, userToCreate.data);
       }
+    }
+  }, {
+    key: 'createData',
+    value: function createData(collection, value) {
+      var dataId = collection.insert(value);
+      if (value.data) this.seedDependent(dataId, value.data);
+    }
+  }, {
+    key: 'seedDependent',
+    value: function seedDependent(dataId, data) {
+      var dependent = data(dataId);
+      this.seed(this.validateCollection(dependent.collection), dependent);
     }
   }]);
 

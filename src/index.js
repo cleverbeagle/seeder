@@ -6,11 +6,8 @@ class Seeder {
       throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collectionName, options).');
     }
 
-    this.collection = this.validateCollection(collection);
-    this.options = options;
-
     if (Meteor && Meteor.isServer) {
-      this.seed();
+      this.seed(this.validateCollection(collection), options);
     } else {
       throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://packages.cleverbeagle.com/seeder/usage for more.');
     }
@@ -21,21 +18,20 @@ class Seeder {
     return collection;
   }
 
-  seed() {
-    const { data, model } = this.options;
-    if (data && model) throw new Error('Please choose to seed from either a data array or a model.');
-    this.sow(data || model);
+  seed(collection, options) {
+    const { data, model } = options;
+    if (data) this.sow(data, collection, options);
+    if (model) this.sow(model, collection, options);
   }
 
-  sow(data) {
-    if (this.options.wipe) this.collection.remove({});
-
+  sow(data, collection, options) {
+    if (options.wipe) collection.remove({});
     const isDataArray = data instanceof Array;
-    const loopLength = isDataArray ? data.length : this.options.count;
-    const hasData = this.checkForExistingData();
-    const collectionName = this.collection._name;
+    const loopLength = isDataArray ? data.length : options.modelCount;
+    const hasData = options.noLimit ? false : this.checkForExistingData(collection, options.modelCount);
+    const collectionName = collection._name;
     const isUsers = collectionName === 'users';
-    const environmentAllowed = this.environmentAllowed();
+    const environmentAllowed = this.environmentAllowed(options.environments);
 
     if (!hasData && environmentAllowed) {
       for (let i = 0; i < loopLength; i++) {
@@ -43,9 +39,9 @@ class Seeder {
 
         try {
           if (isUsers) {
-            this.createUser(value);
+            this.createUser(collection, value);
           } else {
-            this.collection.insert(value);
+            this.createData(collection, value);
           }
         } catch (exception) {
           console.warn(exception);
@@ -54,26 +50,36 @@ class Seeder {
     }
   }
 
-  checkForExistingData() {
-    let existingCount = this.collection.find().count();
-    return this.options.count ? (existingCount >= this.options.count) : (existingCount > 0);
+  checkForExistingData(collection, modelCount) {
+    let existingCount = collection.find().count();
+    return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
   }
 
-  environmentAllowed() {
-    const environments = this.options.environments;
+  environmentAllowed(environments) {
     if (environments) return environments.indexOf(process.env.NODE_ENV) > -1;
     return false;
   }
 
-  createUser(user) {
+  createUser(collection, user) {
     const userToCreate = user;
-    const isExistingUser = this.collection.findOne({ 'emails.address': userToCreate.email });
+    const isExistingUser = collection.findOne({ 'emails.address': userToCreate.email });
     if (!isExistingUser) {
       const roles = userToCreate.roles;
       if (roles) delete userToCreate.roles;
       const userId = Accounts.createUser(userToCreate);
       if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
+      if (userToCreate.data) this.seedDependent(userId, userToCreate.data);
     }
+  }
+
+  createData(collection, value) {
+    const dataId = collection.insert(value);
+    if (value.data) this.seedDependent(dataId, value.data);
+  }
+
+  seedDependent(dataId, data) {
+    const dependent = data(dataId);
+    this.seed(this.validateCollection(dependent.collection), dependent);
   }
 }
 
