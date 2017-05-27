@@ -1,4 +1,4 @@
-#### NPM Package Template
-A template for writing NPM packages.
+#### @cleverbeagle/seeder
+A database seeder for Meteor applications.
 
-[Read the Documentation](http://packages.cleverbeagle.com/template)
+[Read the Documentation](http://packages.cleverbeagle.com/seeder)
