@@ -1,6 +1,6 @@
 {
   "name": "@cleverbeagle/seeder",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A database seeder for Meteor applications.",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/cleverbeagle/seeder/issues"
   },
-  "homepage": "http://packages.cleverbeagle.com/seeder/usage",
+  "homepage": "http://cleverbeagle.com/packages/seeder/usage",
   "dependencies": {
     "faker": "^4.1.0"
   },
