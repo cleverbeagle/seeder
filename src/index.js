@@ -9,7 +9,7 @@ class Seeder {
     if (Meteor && Meteor.isServer) {
       this.seed(this.validateCollection(collection), options);
     } else {
-      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://packages.cleverbeagle.com/seeder/usage for more.');
+      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://cleverbeagle.com/packages/seeder/usage for usage instructions.');
     }
   }
 
