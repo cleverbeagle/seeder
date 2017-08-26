@@ -3,7 +3,7 @@ import faker from 'faker';
 class Seeder {
   constructor(collection, options) {
     if (!collection || !options) {
-      throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collectionName, options).');
+      throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collection, options).');
     }
 
     if (Meteor && Meteor.isServer) {
@@ -78,7 +78,7 @@ class Seeder {
   }
 
   seedDependent(dataId, data) {
-    const dependent = data(dataId);
+    const dependent = data(dataId, faker);
     this.seed(this.validateCollection(dependent.collection), dependent);
   }
 }
