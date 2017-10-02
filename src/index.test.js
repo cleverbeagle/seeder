@@ -1,4 +1,5 @@
 import seeder from './index';
+import uuid from 'uuid/v4';
 
 class Collection {
   constructor(name) {
@@ -8,8 +9,9 @@ class Collection {
   }
 
   insert(doc) {
-    this.documents.push(doc);
-    return doc;
+    const _id = uuid();
+    this.documents.push({ _id, ...doc });
+    return _id; // Fake a UUID. Not identical to Meteor's ID but good enough for tests.
   }
 
   findOne(query) {
@@ -167,4 +169,40 @@ test('it seeds the dependent collection with model data', () => {
   });
 
   expect(Coffee.find().count()).toBe(10);
+});
+
+test('it doesn\'t discriminate against return value on data function', () => {
+  const createCoffee = (location) => {
+    let i = 0;
+    while (i < 15) {
+      Coffee.insert({ location, type: `Coffee #${i + 1}` });
+      i++;
+    }
+  };
+
+  seeder(CoffeeShops, {
+    environments: ['development'],
+    modelCount: 5,
+    model(index) {
+      return {
+        name: `Coffee Shop #${index + 1}`,
+        data(coffeeShopId, faker, iteration) {
+          const name = `Coffee Shop #${iteration + 1}`;
+          createCoffee(name);
+          return {
+            collection: Coffee,
+            wipe: false,
+            noLimit: true,
+            environments: ['development'],
+            data: [
+              { location: name, type: 'Guatemalan' },
+              { location: name, type: 'Columbian' },
+            ],
+          };
+        },
+      };
+    },
+  });
+
+  expect(Coffee.find().count()).toBe(85);
 });
