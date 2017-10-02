@@ -62,7 +62,13 @@ class Seeder {
 
   createUser(collection, user) {
     const userToCreate = user;
-    const isExistingUser = collection.findOne({ 'emails.address': userToCreate.email });
+    const isExistingUser = collection.findOne({
+      $or: [
+        { 'emails.address': userToCreate.email },
+        { username: userToCreate.username },
+      ]
+    });
+
     if (!isExistingUser) {
       const roles = userToCreate.roles;
       if (roles) delete userToCreate.roles;

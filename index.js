@@ -19,13 +19,13 @@ var Seeder = function () {
     _classCallCheck(this, Seeder);
 
     if (!collection || !options) {
-      throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collectionName, options).');
+      throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collection, options).');
     }
 
     if (Meteor && Meteor.isServer) {
       this.seed(this.validateCollection(collection), options);
     } else {
-      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://packages.cleverbeagle.com/seeder/usage for more.');
+      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://cleverbeagle.com/packages/seeder/usage for usage instructions.');
     }
   }
 
@@ -87,7 +87,10 @@ var Seeder = function () {
     key: 'createUser',
     value: function createUser(collection, user) {
       var userToCreate = user;
-      var isExistingUser = collection.findOne({ 'emails.address': userToCreate.email });
+      var isExistingUser = collection.findOne({
+        $or: [{ 'emails.address': userToCreate.email }, { username: userToCreate.username }]
+      });
+
       if (!isExistingUser) {
         var roles = userToCreate.roles;
         if (roles) delete userToCreate.roles;
@@ -105,7 +108,7 @@ var Seeder = function () {
   }, {
     key: 'seedDependent',
     value: function seedDependent(dataId, data) {
-      var dependent = data(dataId);
+      var dependent = data(dataId, _faker2.default);
       this.seed(this.validateCollection(dependent.collection), dependent);
     }
   }]);
