@@ -61,9 +61,9 @@ var Seeder = function () {
 
           try {
             if (isUsers) {
-              this.createUser(collection, value);
+              this.createUser(collection, value, i); // Pass i for use with dependents.
             } else {
-              this.createData(collection, value);
+              this.createData(collection, value, i); // Pass i for use with dependents.
             }
           } catch (exception) {
             console.warn(exception);
@@ -85,7 +85,7 @@ var Seeder = function () {
     }
   }, {
     key: 'createUser',
-    value: function createUser(collection, user) {
+    value: function createUser(collection, user, iteration) {
       var userToCreate = user;
       var isExistingUser = collection.findOne({
         $or: [{ 'emails.address': userToCreate.email }, { username: userToCreate.username }]
@@ -96,20 +96,21 @@ var Seeder = function () {
         if (roles) delete userToCreate.roles;
         var userId = Accounts.createUser(userToCreate);
         if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
-        if (userToCreate.data) this.seedDependent(userId, userToCreate.data);
+        if (userToCreate.data) this.seedDependent(userId, userToCreate.data, iteration);
       }
     }
   }, {
     key: 'createData',
-    value: function createData(collection, value) {
+    value: function createData(collection, value, iteration) {
+      var data = value.data; // Cache this as a variable before it gets sanitized by the insert.
       var dataId = collection.insert(value);
-      if (value.data) this.seedDependent(dataId, value.data);
+      if (data) this.seedDependent(dataId, data, iteration);
     }
   }, {
     key: 'seedDependent',
-    value: function seedDependent(dataId, data) {
-      var dependent = data(dataId, _faker2.default);
-      this.seed(this.validateCollection(dependent.collection), dependent);
+    value: function seedDependent(dataId, data, iteration) {
+      var dependent = data(dataId, _faker2.default, iteration);
+      if (dependent && dependent.collection) this.seed(this.validateCollection(dependent.collection), dependent);
     }
   }]);
 

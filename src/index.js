@@ -39,9 +39,9 @@ class Seeder {
 
         try {
           if (isUsers) {
-            this.createUser(collection, value);
+            this.createUser(collection, value, i); // Pass i for use with dependents.
           } else {
-            this.createData(collection, value);
+            this.createData(collection, value, i); // Pass i for use with dependents.
           }
         } catch (exception) {
           console.warn(exception);
@@ -60,7 +60,7 @@ class Seeder {
     return false;
   }
 
-  createUser(collection, user) {
+  createUser(collection, user, iteration) {
     const userToCreate = user;
     const isExistingUser = collection.findOne({
       $or: [
@@ -74,18 +74,19 @@ class Seeder {
       if (roles) delete userToCreate.roles;
       const userId = Accounts.createUser(userToCreate);
       if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
-      if (userToCreate.data) this.seedDependent(userId, userToCreate.data);
+      if (userToCreate.data) this.seedDependent(userId, userToCreate.data, iteration);
     }
   }
 
-  createData(collection, value) {
+  createData(collection, value, iteration) {
+    const data = value.data; // Cache this as a variable before it gets sanitized by the insert.
     const dataId = collection.insert(value);
-    if (value.data) this.seedDependent(dataId, value.data);
+    if (data) this.seedDependent(dataId, data, iteration);
   }
 
-  seedDependent(dataId, data) {
-    const dependent = data(dataId, faker);
-    this.seed(this.validateCollection(dependent.collection), dependent);
+  seedDependent(dataId, data, iteration) {
+    const dependent = data(dataId, faker, iteration);
+    if (dependent && dependent.collection) this.seed(this.validateCollection(dependent.collection), dependent);
   }
 }
 
