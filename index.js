@@ -87,9 +87,9 @@ var Seeder = function () {
     key: 'createUser',
     value: function createUser(collection, user, iteration) {
       var userToCreate = user;
-      var isExistingUser = collection.findOne({
-        $or: [{ 'emails.address': userToCreate.email }, { username: userToCreate.username }]
-      });
+      var isExistingUserConditions = [{ 'emails.address': userToCreate.email }];
+      if (userToCreate.username) isExistingUserConditions.push({ username: userToCreate.username });
+      var isExistingUser = collection.findOne({ $or: isExistingUserConditions });
 
       if (!isExistingUser) {
         var roles = userToCreate.roles;
