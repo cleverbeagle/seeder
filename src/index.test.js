@@ -31,6 +31,7 @@ class Collection {
 
 const CoffeeShops = new Collection('CoffeeShops');
 const Coffee = new Collection('Coffee');
+const Tea = new Collection('Tea');
 
 const testCoffeeShops = [
   { name: 'Wicker Park' },
@@ -44,11 +45,17 @@ const testCoffees = [
   { type: 'Kenyan' },
 ];
 
+const testTeas = [
+  { type: 'OOlong' },
+  { type: 'PuEr' },
+];
+
 beforeEach(() => {
   global.Meteor = require('meteor/meteor');
   global.process = { env: { NODE_ENV: 'development' } };
   CoffeeShops.documents = [];
   Coffee.documents = [];
+  Tea.documents = [];
 });
 
 test('it seeds the collection using static data', () => {
@@ -205,4 +212,114 @@ test('it doesn\'t discriminate against return value on data function', () => {
   });
 
   expect(Coffee.find().count()).toBe(85);
+});
+
+test('it populates one collection of Coffee using data and return', () => {
+  const coffeeSeed = coffeeShopId => ({
+    collection: Coffee,
+    noLimit: true,
+    environments: ['development'],
+    modelCount: 3,
+    model(dataIndex) {
+      return {
+        location: `Coffee Shop #${dataIndex + 1}`,
+        name: testTeas[dataIndex],
+      };
+    },
+  });
+
+  seeder(CoffeeShops, {
+    environments: ['development'],
+    modelCount: 5,
+    model(index) {
+      return {
+        name: `Coffee Shop #${index + 1}`,
+        data(coffeeShopId) {
+          return coffeeSeed(coffeeShopId);
+        },
+      };
+    },
+  });
+
+  expect(CoffeeShops.find().count()).toBe(5);
+  expect(Coffee.find().count()).toBe(15);
+  expect(Tea.find().count()).toBe(0);
+});
+
+test('it populates one collection of Tea using data and return', () => {
+  const teaSeed = coffeeShopId => ({
+    collection: Tea,
+    noLimit: true,
+    environments: ['development'],
+    modelCount: 2,
+    model(index) {
+      return {
+        location: `Coffee Shop #${index + 1}`,
+        name: testTeas[index],
+      };
+    },
+  });
+
+  seeder(CoffeeShops, {
+    environments: ['development'],
+    modelCount: 5,
+    model(index) {
+      return {
+        name: `Coffee Shop #${index + 1}`,
+        data(coffeeShopId) {
+          return teaSeed(coffeeShopId);
+        },
+      };
+    },
+  });
+
+  expect(CoffeeShops.find().count()).toBe(5);
+  expect(Coffee.find().count()).toBe(0);
+  expect(Tea.find().count()).toBe(10);
+});
+
+test('it populates two collections using data and no return statement', () => {
+  const coffeeSeed = coffeeShopId => ({
+    collection: Coffee,
+    noLimit: true,
+    environments: ['development'],
+    modelCount: 3,
+    model(index) {
+      return {
+        location: `Coffee Shop #${index + 1}`,
+        name: testCoffees[index],
+      };
+    },
+  });
+
+  const teaSeed = coffeeShopId => ({
+    collection: Tea,
+    noLimit: true,
+    environments: ['development'],
+    modelCount: 2,
+    model(index) {
+      return {
+        location: `Coffee Shop #${index + 1}`,
+        name: testTeas[index],
+      };
+    },
+  });
+;
+  seeder(CoffeeShops, {
+    environments: ['development'],
+    modelCount: 5,
+    model(index) {
+      return {
+        name: `Coffee Shop #${index + 1}`,
+        data(coffeeShopId) {
+          coffeeSeed(coffeeShopId);
+          teaSeed(coffeeShopId);
+        },
+      };
+    },
+  });
+
+  expect(CoffeeShops.find().count()).toBe(5);
+  expect(Coffee.find().count()).toBe(15);
+  expect(Tea.find().count()).toBe(10);
 });
