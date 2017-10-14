@@ -214,7 +214,7 @@ test('it doesn\'t discriminate against return value on data function', () => {
   expect(Coffee.find().count()).toBe(85);
 });
 
-test('it populates one collections using data and return', () => {
+test('it populates one collection of Coffee using data and return', () => {
   const coffeeSeed = coffeeShopId => ({
     collection: Coffee,
     noLimit: true,
@@ -228,7 +228,6 @@ test('it populates one collections using data and return', () => {
     },
   });
 
-  console.log("ok");
   seeder(CoffeeShops, {
     environments: ['development'],
     modelCount: 5,
@@ -244,6 +243,39 @@ test('it populates one collections using data and return', () => {
 
   expect(CoffeeShops.find().count()).toBe(5);
   expect(Coffee.find().count()).toBe(15);
+  expect(Tea.find().count()).toBe(0);
+});
+
+test('it populates one collection of Tea using data and return', () => {
+  const teaSeed = coffeeShopId => ({
+    collection: Tea,
+    noLimit: true,
+    environments: ['development'],
+    modelCount: 2,
+    model(index) {
+      return {
+        location: `Coffee Shop #${index + 1}`,
+        name: testTeas[index],
+      };
+    },
+  });
+
+  seeder(CoffeeShops, {
+    environments: ['development'],
+    modelCount: 5,
+    model(index) {
+      return {
+        name: `Coffee Shop #${index + 1}`,
+        data(coffeeShopId) {
+          return teaSeed(coffeeShopId);
+        },
+      };
+    },
+  });
+
+  expect(CoffeeShops.find().count()).toBe(5);
+  expect(Coffee.find().count()).toBe(0);
+  expect(Tea.find().count()).toBe(10);
 });
 
 test('it populates two collections using data and no return statement', () => {
@@ -252,10 +284,10 @@ test('it populates two collections using data and no return statement', () => {
     noLimit: true,
     environments: ['development'],
     modelCount: 3,
-    model(dataIndex) {
+    model(index) {
       return {
-        location: `Coffee Shop #${dataIndex + 1}`,
-        name: testCoffees[dataIndex],
+        location: `Coffee Shop #${index + 1}`,
+        name: testCoffees[index],
       };
     },
   });
@@ -264,16 +296,15 @@ test('it populates two collections using data and no return statement', () => {
     collection: Tea,
     noLimit: true,
     environments: ['development'],
-    modelCount: 3,
-    model(dataIndex) {
+    modelCount: 2,
+    model(index) {
       return {
-        location: `Coffee Shop #${dataIndex + 1}`,
-        name: testTeas[dataIndex],
+        location: `Coffee Shop #${index + 1}`,
+        name: testTeas[index],
       };
     },
   });
-
-  console.log("ok");
+;
   seeder(CoffeeShops, {
     environments: ['development'],
     modelCount: 5,
