@@ -37,9 +37,8 @@ class Seeder {
   }
 
   seedCollection() {
-    // console.log(this.options);
     if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
-    if (this.options.dynamic) this.seedCollectionWithDynamicData(this.options.dynamic);
+    if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
   }
 
   seedCollectionWithStaticData(staticData) {
@@ -81,52 +80,29 @@ class Seeder {
     }
   }
 
-  seedCollectionWithDynamicData(dynamicData) {
-    if (typeof dynamicData !== 'object') this.throwSeederError('Only an object can be passed to the dynamic option.');
-    if (dynamicData && !dynamicData.count) this.throwSeederError('A count property with the number of objects to create must be defined on the object passed to the dynamic option.');
-    if (dynamicData && dynamicData.count && typeof dynamicData.count !== 'number') this.throwSeederError('Count property defined on the object passed to the dynamic option must be a number.');
+  createObjectInCollection(staticDataItem) {
+    console.log('staticDataItem', staticDataItem);
   }
 
-  // sow(data, collection, options) {
-  //   if (options.wipe) collection.remove({});
-  //   const isDataArray = data instanceof Array;
-  //   const loopLength = isDataArray ? data.length : options.modelCount;
-  //   const hasData = options.noLimit ? false : this.checkForExistingData(collection, options.modelCount);
-  //   const collectionName = collection._name;
-  //   const isUsers = collectionName === 'users';
-  //   const environmentAllowed = this.environmentAllowed(options.environments);
+  seedCollectionWithDynamicData(dynamicData) {
+    // NOTE: Checking if dynamicData is an actual object (not an array or other value).
+    if (Object.prototype.toString.call(dynamicData) !== '[object Object]') this.throwSeederError('Only an object can be passed to the dynamic option.');
+    if (dynamicData && dynamicData.count && typeof dynamicData.count !== 'number') this.throwSeederError('count property defined on the object passed to the dynamic option must be a number.');
+    if (dynamicData && dynamicData.seed && typeof dynamicData.seed !== 'function') this.throwSeederError('seed property defined on the object passed to the dynamic option must be a function.');
 
-  //   if (!hasData && environmentAllowed) {
-  //     for (let i = 0; i < loopLength; i++) {
-  //       const value = isDataArray ? data[i] : data(i, faker);
+    for (let currentItemIndex = 0; currentItemIndex < dynamicData.count; currentItemIndex += 1) {
+      const itemToCreate = dynamicData.seed(currentItemIndex);
+      const idOfItemCreated = this.collection.insert(itemToCreate);
 
-  //       try {
-  //         if (isUsers) {
-  //           this.createUser(collection, value, i); // Pass i for use with dependents.
-  //         } else {
-  //           this.createData(collection, value, i); // Pass i for use with dependents.
-  //         }
-  //       } catch (exception) {
-  //         console.warn(exception);
-  //       }
-  //     }
-  //   }
-  // }
+      if (itemToCreate && itemToCreate.dependentData) {
+        itemToCreate.dependentData(idOfItemCreated);  
+      }
+    }
+  }
 
   checkForExistingData(collection, modelCount) {
     let existingCount = collection.find().count();
     return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
-  }
-
-  createData(collection, value, iteration) {
-    const data = value.data; // Cache this as a variable before it gets sanitized by the insert.
-    const dataId = collection.insert(value);
-    if (data) this.seedDependent(dataId, data, iteration);
-  }
-
-  seedDependent(dataId, data, iteration) {
-    const dependent = data(dataId, faker, iteration);
-    if (dependent && dependent.collection) this.seed(this.validateCollection(dependent.collection), dependent);
   }
 }
 

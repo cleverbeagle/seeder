@@ -4,8 +4,6 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
-var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
-
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 var _faker = require('faker');
@@ -60,9 +58,8 @@ var Seeder = function () {
   }, {
     key: 'seedCollection',
     value: function seedCollection() {
-      // console.log(this.options);
       if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
-      if (this.options.dynamic) this.seedCollectionWithDynamicData(this.options.dynamic);
+      if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
     }
   }, {
     key: 'seedCollectionWithStaticData',
@@ -108,57 +105,32 @@ var Seeder = function () {
       }
     }
   }, {
+    key: 'createObjectInCollection',
+    value: function createObjectInCollection(staticDataItem) {
+      console.log('staticDataItem', staticDataItem);
+    }
+  }, {
     key: 'seedCollectionWithDynamicData',
     value: function seedCollectionWithDynamicData(dynamicData) {
-      if ((typeof dynamicData === 'undefined' ? 'undefined' : _typeof(dynamicData)) !== 'object') this.throwSeederError('Only an object can be passed to the dynamic option.');
-      if (dynamicData && !dynamicData.count) this.throwSeederError('A count property with the number of objects to create must be defined on the object passed to the dynamic option.');
-      if (dynamicData && dynamicData.count && typeof dynamicData.count !== 'number') this.throwSeederError('Count property defined on the object passed to the dynamic option must be a number.');
+      // NOTE: Checking if dynamicData is an actual object (not an array or other value).
+      if (Object.prototype.toString.call(dynamicData) !== '[object Object]') this.throwSeederError('Only an object can be passed to the dynamic option.');
+      if (dynamicData && dynamicData.count && typeof dynamicData.count !== 'number') this.throwSeederError('count property defined on the object passed to the dynamic option must be a number.');
+      if (dynamicData && dynamicData.seed && typeof dynamicData.seed !== 'function') this.throwSeederError('seed property defined on the object passed to the dynamic option must be a function.');
+
+      for (var currentItemIndex = 0; currentItemIndex < dynamicData.count; currentItemIndex += 1) {
+        var itemToCreate = dynamicData.seed(currentItemIndex);
+        var idOfItemCreated = this.collection.insert(itemToCreate);
+
+        if (itemToCreate && itemToCreate.dependentData) {
+          itemToCreate.dependentData(idOfItemCreated);
+        }
+      }
     }
-
-    // sow(data, collection, options) {
-    //   if (options.wipe) collection.remove({});
-    //   const isDataArray = data instanceof Array;
-    //   const loopLength = isDataArray ? data.length : options.modelCount;
-    //   const hasData = options.noLimit ? false : this.checkForExistingData(collection, options.modelCount);
-    //   const collectionName = collection._name;
-    //   const isUsers = collectionName === 'users';
-    //   const environmentAllowed = this.environmentAllowed(options.environments);
-
-    //   if (!hasData && environmentAllowed) {
-    //     for (let i = 0; i < loopLength; i++) {
-    //       const value = isDataArray ? data[i] : data(i, faker);
-
-    //       try {
-    //         if (isUsers) {
-    //           this.createUser(collection, value, i); // Pass i for use with dependents.
-    //         } else {
-    //           this.createData(collection, value, i); // Pass i for use with dependents.
-    //         }
-    //       } catch (exception) {
-    //         console.warn(exception);
-    //       }
-    //     }
-    //   }
-    // }
-
   }, {
     key: 'checkForExistingData',
     value: function checkForExistingData(collection, modelCount) {
       var existingCount = collection.find().count();
       return modelCount ? existingCount >= modelCount : existingCount > 0;
-    }
-  }, {
-    key: 'createData',
-    value: function createData(collection, value, iteration) {
-      var data = value.data; // Cache this as a variable before it gets sanitized by the insert.
-      var dataId = collection.insert(value);
-      if (data) this.seedDependent(dataId, data, iteration);
-    }
-  }, {
-    key: 'seedDependent',
-    value: function seedDependent(dataId, data, iteration) {
-      var dependent = data(dataId, _faker2.default, iteration);
-      if (dependent && dependent.collection) this.seed(this.validateCollection(dependent.collection), dependent);
     }
   }]);
 
