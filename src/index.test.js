@@ -16,11 +16,12 @@ const user = {
 // NOTE: Write this as a class to give each test its own collection
 // instance to mess with.
 class _Collection {
-  constructor() {
+  constructor(collectionName) {
     this._driver = {
       mongo: {},
     };
 
+    this._name = collectionName || 'collection';
     this._data = [];
   }
 
@@ -52,8 +53,9 @@ describe('@cleverbeagle/seeder', () => {
     jest.resetModules();
 
     // NOTE: Give each test its own collection.
-    global.Collection = new _Collection();
-    global.DependentCollection = new _Collection();
+    global.Users = new _Collection('users');
+    global.Documents = new _Collection('Documents');
+    global.Comments = new _Collection('Comments');
 
     // console.log(global.Collection);
 
@@ -75,62 +77,58 @@ describe('@cleverbeagle/seeder', () => {
     global.Meteor.isServer = true;
   });
 
+  /* Validate options passed to seeder() */
+
   it('throws an error if a collection is not passed', () => {
     expect(() => seeder(null, {})).toThrow();
   });
 
   it('throws an error if collection is not a valid MongoDB collection', () => {
-    delete Collection._driver.mongo;
-    expect(() => seeder(Collection, getSeederOptions())).toThrow('Value passed for "collection" is not a valid MongoDB collection.');
+    delete Documents._driver.mongo;
+    expect(() => seeder(Documents, getSeederOptions())).toThrow('Value passed for "collection" is not a valid MongoDB collection.');
   });
 
   it('throws an error if options are not passed', () => {
-    expect(() => seeder(Collection, null)).toThrow();
+    expect(() => seeder(Documents, null)).toThrow();
   });
 
   it('throws an error if environments is not defined in options', () => {
     const testOptions = getSeederOptions();
     delete testOptions.environments;
-    expect(() => seeder(Collection, testOptions)).toThrow();
+    expect(() => seeder(Documents, testOptions)).toThrow();
   });
 
   it('throws an error if run in a disallowed environment', () => {
     process.env = { ...NODE_ENV_BEFORE_TEST };
     delete process.env.NODE_ENV;
 
-    expect(() => seeder(Collection, { environments: ['development', 'staging'] }))
+    expect(() => seeder(Documents, { environments: ['development', 'staging'] }))
       .toThrow('Seeding not allowed in this environment.');
   });
 
   it('throws an error if data is not defined in options', () => {
     const testOptions = getSeederOptions();
     delete testOptions.data;
-    expect(() => seeder(Collection, testOptions))
+    expect(() => seeder(Documents, testOptions))
       .toThrow('Must pass a data object with static array, dynamic object, or both.');
   });
 
   it('throws an error if data.static or data.dynamic are not defined in options.data', () => {
     const testOptions = getSeederOptions();
     testOptions.data = {};
-    expect(() => seeder(Collection, testOptions))
+    expect(() => seeder(Documents, testOptions))
       .toThrow('Must assign a static array or dynamic object to data in options.');
   });
 
   it('throws an error if used outside of Meteor server environment.', () => {
     global.Meteor.isServer = false;
-    expect(() => seeder(Collection, getSeederOptions())).toThrow('Seeder is only intended to be run in a Meteor server environment.');
+    expect(() => seeder(Documents, getSeederOptions())).toThrow('Seeder is only intended to be run in a Meteor server environment.');
   });
 
-  it('throws an error if data.static is not an array', () => {
-    const testOptions = getSeederOptions();
-    testOptions.data = { static: {}, dynamic: {} };
-    expect(() => seeder(Collection, testOptions)).toThrow('Only an array can be passed to the static option.');
-  });
+  /* User creation */
 
   it('creates a user if collection is Meteor.users using static data', () => {
     Accounts.createUser.mockImplementation(() => 'userId');
-
-    Collection._name = 'users';
 
     const roles = [...user.roles];
 
@@ -139,7 +137,7 @@ describe('@cleverbeagle/seeder', () => {
 
     testOptions.data.static = [user];
 
-    seeder(Collection, testOptions);
+    seeder(Users, testOptions);
     
     expect(Accounts.createUser).toHaveBeenCalledTimes(1);
     expect(Accounts.createUser).toHaveBeenCalledWith(user);
@@ -149,51 +147,241 @@ describe('@cleverbeagle/seeder', () => {
   it('creates a user with dependentData if collection is Meteor.users using static data', () => {
     Accounts.createUser.mockImplementation(() => 'userId');
 
-    Collection._name = 'users';
     user.dependentData = jest.fn();
 
     const testOptions = getSeederOptions();
     delete testOptions.data.dynamic;
     testOptions.data.static = [user];
 
-    seeder(Collection, testOptions);
+    seeder(Users, testOptions);
 
     expect(user.dependentData).toHaveBeenCalledTimes(1);
     expect(user.dependentData).toHaveBeenCalledWith('userId');
   });
 
-  it('does not create a user if the user already exists using static data', () => {
-    Collection._name = 'users';
-    Collection.insert({ _id: 'userId' });
+  it('does not create a user if the user already exist using static data', () => {
+    Users.insert({ _id: 'userId' });
 
     const testOptions = getSeederOptions();
     delete testOptions.data.dynamic;
     testOptions.data.static = [user];
 
-    seeder(Collection, testOptions);
+    seeder(Users, testOptions);
 
     expect(Accounts.createUser).not.toHaveBeenCalled();
     expect(Roles.addUsersToRoles).not.toHaveBeenCalled();
   });
 
+  it('creates users if collection is Meteor.users using dynamic data', () => {
+    Accounts.createUser.mockImplementation(() => 'userId');
+
+    const testOptions = getSeederOptions();
+    delete testOptions.data.static;
+
+    testOptions.data.dynamic = {
+      count: 5,
+      seed(userNumber, faker) {
+        return {
+          email: `user+${userNumber}@test.com`,
+          password: 'password',
+          profile: {
+            name: {
+              first: faker.name.firstName(),
+              last: faker.name.lastName(),
+            },
+          },
+          roles: ['user'],
+        };
+      },
+    };
+
+    seeder(Users, testOptions);
+    
+    expect(Accounts.createUser).toHaveBeenCalledTimes(5);
+    expect(Roles.addUsersToRoles).toHaveBeenCalledTimes(5);
+  });
+
+  it('creates users with dependentData if collection is Meteor.users using dynamic data', () => {
+    Accounts.createUser.mockImplementation(() => 'userId');
+
+    const testOptions = getSeederOptions();
+    delete testOptions.data.static;
+    testOptions.data.dynamic = {
+      count: 5,
+      seed(userNumber, faker) {
+        return {
+          email: `user+${userNumber}@test.com`,
+          password: 'password',
+          profile: {
+            name: {
+              first: faker.name.firstName(),
+              last: faker.name.lastName(),
+            },
+          },
+          roles: ['user'],
+          dependentData(userId) {
+            seeder(Documents, {
+              environments: ['test', 'development', 'staging'],
+              data: {
+                dynamic: {
+                  count: 5,
+                  seed(iteration) {
+                    return {
+                      title: `Document #${iteration + 1}`,
+                      body: `This is the body of Document #${iteration + 1}`,
+                    };
+                  },
+                },
+              },
+            });
+          },
+        };
+      },
+    };
+
+    seeder(Users, testOptions);
+
+    expect(Accounts.createUser).toHaveBeenCalledTimes(5);
+    expect(Documents._data.length).toEqual(25);
+  });
+
+  it('does not create users if they already exist using dynamic data', () => {
+    Accounts.createUser.mockImplementation(() => 'userId');
+
+    // NOTE: Insert fake users.
+    let fakeUserCount = 0;
+
+    while (fakeUserCount < 5) {
+      Users.insert({
+        email: `user+${fakeUserCount}@test.com`,
+        password: 'password',
+        profile: {
+          name: {
+            first: 'Fake',
+            last: 'User',
+          },
+        },
+        roles: ['user'],
+      });
+
+      fakeUserCount += 1;
+    }
+
+    const testOptions = getSeederOptions();
+    delete testOptions.data.static;
+
+    testOptions.data.dynamic = {
+      count: 5,
+      seed(userNumber, faker) {
+        return {
+          email: `user+${userNumber}@test.com`,
+          password: 'password',
+          profile: {
+            name: {
+              first: faker.name.firstName(),
+              last: faker.name.lastName(),
+            },
+          },
+          roles: ['user'],
+        };
+      },
+    };
+
+    seeder(Users, testOptions);
+    
+    expect(Accounts.createUser).not.toHaveBeenCalled();
+    expect(Roles.addUsersToRoles).not.toHaveBeenCalled();
+  });
+
+  /* Static data creation */
+
+  it('throws an error if data.static is not an array', () => {
+    const testOptions = getSeederOptions();
+    testOptions.data = { static: {}, dynamic: {} };
+    expect(() => seeder(Documents, testOptions)).toThrow('Only an array can be passed to the static option.');
+  });
+
+  it('creates item in collection using static data', () => {
+    const testOptions = getSeederOptions();
+    delete testOptions.data.dynamic;
+    testOptions.data.static = [{
+      title: `Document #1`,
+      body: `This is the body of Document #1`,
+    }, {
+      title: `Document #2`,
+      body: `This is the body of Document #2`,
+    }];
+    seeder(Documents, testOptions);
+    expect(Documents._data.length).toBe(2);
+  });
+
+  it('creates item in collection using static data with dependentData', () => {
+    const testOptions = getSeederOptions();
+    delete testOptions.data.dynamic;
+    testOptions.data.static = [{
+      title: `Document #1`,
+      body: `This is the body of Document #1`,
+      dependentData(documentId) {
+        seeder(Comments, {
+          environments: ['test', 'development', 'staging'],
+          data: {
+            dynamic: {
+              count: 5,
+              seed(iteration) {
+                return {
+                  documentId,
+                  comment: `This is comment #${iteration}.`,
+                };
+              }
+            },
+          }
+        });
+      },
+    }, {
+      title: `Document #2`,
+      body: `This is the body of Document #2`,
+      dependentData(documentId) {
+        seeder(Comments, {
+          environments: ['test', 'development', 'staging'],
+          data: {
+            dynamic: {
+              count: 5,
+              seed(iteration) {
+                return {
+                  documentId,
+                  comment: `This is comment #${iteration}.`,
+                };
+              }
+            },
+          }
+        });
+      },
+    }];
+    seeder(Documents, testOptions);
+    expect(Documents._data.length).toBe(2);
+    expect(Comments._data.length).toBe(10);
+  });
+
+  /* Dynamic data creation */
+
   it('throws an error if dynamic option is not an object', () => {
     const testOptions = getSeederOptions();
     testOptions.data = { dynamic: [] };
-    expect(() => seeder(Collection, testOptions)).toThrow('Only an object can be passed to the dynamic option.');
+    expect(() => seeder(Documents, testOptions)).toThrow('Only an object can be passed to the dynamic option.');
   });
 
   it('throws an error if count is not defined as number on dynamic option', () => {
     const testOptions = getSeederOptions();
     delete testOptions.data.static;
     testOptions.data.dynamic.count = 'not a number';
-    expect(() => seeder(Collection, testOptions)).toThrow('count property defined on the object passed to the dynamic option must be a number.');
+    expect(() => seeder(Documents, testOptions)).toThrow('count property defined on the object passed to the dynamic option must be a number.');
   });
 
   it('throws an error if seed is not defined as function on dynamic option', () => {
     const testOptions = getSeederOptions();
     delete testOptions.data.static;
     testOptions.data.dynamic.seed = 'not a function';
-    expect(() => seeder(Collection, testOptions)).toThrow('seed property defined on the object passed to the dynamic option must be a function.');
+    expect(() => seeder(Documents, testOptions)).toThrow('seed property defined on the object passed to the dynamic option must be a function.');
   });
 
   it('creates item in collection using dynamic data', () => {
@@ -208,8 +396,8 @@ describe('@cleverbeagle/seeder', () => {
         };
       },
     };
-    seeder(Collection, testOptions);
-    expect(Collection._data.length).toBe(10);
+    seeder(Documents, testOptions);
+    expect(Documents._data.length).toBe(10);
   });
 
   it('creates item in collection using dynamic data with dependent data', () => {
@@ -222,14 +410,15 @@ describe('@cleverbeagle/seeder', () => {
           title: `Document #${iteration + 1}`,
           body: `This is the body of Document #${iteration + 1}`,
           dependentData(documentId) {
-            seeder(DependentCollection, {
+            seeder(Comments, {
               environments: ['test', 'development', 'staging'],
               data: {
                 dynamic: {
                   count: 5,
-                  seed(anotherCollectionIteration) {
+                  seed(commentNumber) {
                     return {
-                      test: `Nested data #${anotherCollectionIteration} under Document ${documentId}`,
+                      documentId,
+                      comment: `This is Comment #${commentNumber} on Document ${documentId}`,
                     };
                   },
                 },
@@ -239,8 +428,8 @@ describe('@cleverbeagle/seeder', () => {
         };
       },
     };
-    seeder(Collection, testOptions);
-    expect(Collection._data.length).toBe(10);
-    expect(DependentCollection._data.length).toBe(50);
+    seeder(Documents, testOptions);
+    expect(Documents._data.length).toBe(10);
+    expect(Comments._data.length).toBe(50);
   });
 });

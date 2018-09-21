@@ -70,15 +70,29 @@ var Seeder = function () {
         this.throwSeederError('Only an array can be passed to the static option.');
       }
 
-      var isUsersCollection = this.collection._name === 'users';
-
       staticData.forEach(function (staticDataItem) {
-        if (isUsersCollection) {
-          _this.createUser(staticDataItem);
-        } else {
-          _this.createObjectInCollection(staticDataItem);
-        }
+        _this.createDataItem(staticDataItem);
       });
+    }
+  }, {
+    key: 'isUsersCollection',
+    value: function isUsersCollection() {
+      return this.collection._name === 'users';
+    }
+  }, {
+    key: 'createDataItem',
+    value: function createDataItem(dataItem) {
+      var idOfItemCreated = void 0;
+
+      if (this.isUsersCollection()) {
+        idOfItemCreated = this.createUser(dataItem);
+      } else {
+        idOfItemCreated = this.collection.insert(dataItem);
+      }
+
+      if (dataItem && dataItem.dependentData) {
+        dataItem.dependentData(idOfItemCreated);
+      }
     }
   }, {
     key: 'createUser',
@@ -100,14 +114,8 @@ var Seeder = function () {
         // NOTE: If a roles array is passed and the global Roles (from the alanning:roles package) is present, assign roles to user.
         if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
 
-        // NOTE: If the user was passed with a dependentData method, call the method passing the user's _id.
-        if (userToCreate.dependentData && typeof userToCreate.dependentData === 'function') userToCreate.dependentData(userId);
+        return userId;
       }
-    }
-  }, {
-    key: 'createObjectInCollection',
-    value: function createObjectInCollection(staticDataItem) {
-      console.log('staticDataItem', staticDataItem);
     }
   }, {
     key: 'seedCollectionWithDynamicData',
@@ -118,12 +126,8 @@ var Seeder = function () {
       if (dynamicData && dynamicData.seed && typeof dynamicData.seed !== 'function') this.throwSeederError('seed property defined on the object passed to the dynamic option must be a function.');
 
       for (var currentItemIndex = 0; currentItemIndex < dynamicData.count; currentItemIndex += 1) {
-        var itemToCreate = dynamicData.seed(currentItemIndex);
-        var idOfItemCreated = this.collection.insert(itemToCreate);
-
-        if (itemToCreate && itemToCreate.dependentData) {
-          itemToCreate.dependentData(idOfItemCreated);
-        }
+        var itemToCreate = dynamicData.seed(currentItemIndex, _faker2.default);
+        this.createDataItem(itemToCreate);
       }
     }
   }, {
