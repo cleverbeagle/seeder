@@ -1,4 +1,4 @@
-import faker from 'faker';
+import faker from 'faker/locale/en';
 
 class Seeder {
   constructor(collection, options) {
@@ -15,9 +15,14 @@ class Seeder {
     
     // NOTE: If collection and options are valid, set them on the instance for access inside of other methods.
     this.collection = collection;
-    this.options = options;
+    this.options = {
+      resetCollection: false,
+      seedIfExistingData: false,
+      ...options,
+    };
 
     if (Meteor && Meteor.isServer) {
+      if (this.options.resetCollection) this.resetCollection();
       this.seedCollection();
     } else {
       this.throwSeederError('Seeder is only intended to be run in a Meteor server environment.');
@@ -29,16 +34,27 @@ class Seeder {
   }
 
   throwSeederError(message) {
-    throw new Error(`[@cleverbeagle/seeder] ${message} See http://cleverbeagle.com/packages/seeder/usage for usage instructions.`);
+    throw new Error(`[@cleverbeagle/seeder] ${message} See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.`);
   }
 
   environmentAllowed(environments) {
     return environments.indexOf(process.env.NODE_ENV) > -1;
   }
 
+  resetCollection() {
+    this.collection.remove({});
+  }
+
   seedCollection() {
+    // NOTE: If options.seedIfExisting data is FALSE and the collection has data, stop immediately.
+    if (!this.options.seedIfExistingData && this.collectionHasExistingData(this.collection)) return;
     if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
     if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
+  }
+
+  collectionHasExistingData(collection, modelCount) {
+    let existingCount = this.collection.find().count();
+    return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
   }
 
   seedCollectionWithStaticData(staticData) {
@@ -101,11 +117,6 @@ class Seeder {
       const itemToCreate = dynamicData.seed(currentItemIndex, faker);
       this.createDataItem(itemToCreate);
     }
-  }
-
-  checkForExistingData(collection, modelCount) {
-    let existingCount = collection.find().count();
-    return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
   }
 }
 

@@ -1,10 +1,10 @@
 {
   "name": "@cleverbeagle/seeder",
-  "version": "1.3.1",
+  "version": "2.0.0",
   "description": "A database seeder for Meteor applications.",
-  "main": "index.js",
+  "main": "index.min.js",
   "scripts": {
-    "build": "babel --presets env src -d ./ --ignore src/index.test.js",
+    "build": "babel --presets env src -d ./ --ignore src/index.test.js && uglifyjs index.js -o index.min.js --compress --mangle",
     "dev": "babel --presets env src -d ./ --watch --ignore src/index.test.js",
     "test": "jest --watch --verbose false"
   },

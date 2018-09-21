@@ -25,6 +25,12 @@ class _Collection {
     this._data = [];
   }
 
+  find() {
+    return {
+      count: (() => this._data.length),
+    };
+  }
+
   findOne() {
     return this._data[0];
   }
@@ -33,6 +39,10 @@ class _Collection {
     const documentId = uuid();
     this._data.push({ _id: documentId, ...data });
     return documentId;
+  }
+
+  remove() {
+    this._data = [];
   }
 }
 
@@ -56,8 +66,6 @@ describe('@cleverbeagle/seeder', () => {
     global.Users = new _Collection('users');
     global.Documents = new _Collection('Documents');
     global.Comments = new _Collection('Comments');
-
-    // console.log(global.Collection);
 
     global.Meteor = {
       isServer: true,
@@ -123,6 +131,57 @@ describe('@cleverbeagle/seeder', () => {
   it('throws an error if used outside of Meteor server environment.', () => {
     global.Meteor.isServer = false;
     expect(() => seeder(Documents, getSeederOptions())).toThrow('Seeder is only intended to be run in a Meteor server environment.');
+  });
+
+  /* Collection maintenance & precaution */
+
+  it('wipes the collection if options.resetCollection is true', () => {
+    Documents.insert({
+      title: 'Document #1',
+      body: 'This is the body of Document #1',
+    });
+
+    const testOptions = getSeederOptions();
+    testOptions.resetCollection = true;
+
+    seeder(Documents, testOptions);
+    expect(Documents._data.length).toBe(0);
+  });
+
+  it('does not seed the collection if options.seedIfExistingData is false', () => {
+    Documents.insert({
+      title: 'Document #1',
+      body: 'This is the body of Document #1',
+    });
+
+    const testOptions = getSeederOptions();
+    testOptions.seedIfExistingData = false;
+    testOptions.data.static = [{
+      title: 'Document #2',
+      body: 'This is the body of Document #2',
+    }];
+
+    seeder(Documents, testOptions);
+
+    expect(Documents._data.length).toBe(1);
+  });
+
+  it('does seed the collection if options.seedIfExistingData is true', () => {
+    Documents.insert({
+      title: 'Document #1',
+      body: 'This is the body of Document #1',
+    });
+
+    const testOptions = getSeederOptions();
+    testOptions.seedIfExistingData = true;
+    testOptions.data.static = [{
+      title: 'Document #2',
+      body: 'This is the body of Document #2',
+    }];
+
+    seeder(Documents, testOptions);
+
+    expect(Documents._data.length).toBe(2);
   });
 
   /* User creation */
@@ -222,6 +281,7 @@ describe('@cleverbeagle/seeder', () => {
           dependentData(userId) {
             seeder(Documents, {
               environments: ['test', 'development', 'staging'],
+              seedIfExistingData: true,
               data: {
                 dynamic: {
                   count: 5,
@@ -327,6 +387,7 @@ describe('@cleverbeagle/seeder', () => {
           data: {
             dynamic: {
               count: 5,
+              seedIfExistingData: true,
               seed(iteration) {
                 return {
                   documentId,
@@ -342,6 +403,7 @@ describe('@cleverbeagle/seeder', () => {
       body: `This is the body of Document #2`,
       dependentData(documentId) {
         seeder(Comments, {
+          seedIfExistingData: true,
           environments: ['test', 'development', 'staging'],
           data: {
             dynamic: {
@@ -411,6 +473,7 @@ describe('@cleverbeagle/seeder', () => {
           body: `This is the body of Document #${iteration + 1}`,
           dependentData(documentId) {
             seeder(Comments, {
+              seedIfExistingData: true,
               environments: ['test', 'development', 'staging'],
               data: {
                 dynamic: {

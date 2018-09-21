@@ -4,11 +4,13 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 
+var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
-var _faker = require('faker');
+var _en = require('faker/locale/en');
 
-var _faker2 = _interopRequireDefault(_faker);
+var _en2 = _interopRequireDefault(_en);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
@@ -31,9 +33,13 @@ var Seeder = function () {
 
     // NOTE: If collection and options are valid, set them on the instance for access inside of other methods.
     this.collection = collection;
-    this.options = options;
+    this.options = _extends({
+      resetCollection: false,
+      seedIfExistingData: false
+    }, options);
 
     if (Meteor && Meteor.isServer) {
+      if (this.options.resetCollection) this.resetCollection();
       this.seedCollection();
     } else {
       this.throwSeederError('Seeder is only intended to be run in a Meteor server environment.');
@@ -48,7 +54,7 @@ var Seeder = function () {
   }, {
     key: 'throwSeederError',
     value: function throwSeederError(message) {
-      throw new Error('[@cleverbeagle/seeder] ' + message + ' See http://cleverbeagle.com/packages/seeder/usage for usage instructions.');
+      throw new Error('[@cleverbeagle/seeder] ' + message + ' See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.');
     }
   }, {
     key: 'environmentAllowed',
@@ -56,10 +62,23 @@ var Seeder = function () {
       return environments.indexOf(process.env.NODE_ENV) > -1;
     }
   }, {
+    key: 'resetCollection',
+    value: function resetCollection() {
+      this.collection.remove({});
+    }
+  }, {
     key: 'seedCollection',
     value: function seedCollection() {
+      // NOTE: If options.seedIfExisting data is FALSE and the collection has data, stop immediately.
+      if (!this.options.seedIfExistingData && this.collectionHasExistingData(this.collection)) return;
       if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
       if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
+    }
+  }, {
+    key: 'collectionHasExistingData',
+    value: function collectionHasExistingData(collection, modelCount) {
+      var existingCount = this.collection.find().count();
+      return modelCount ? existingCount >= modelCount : existingCount > 0;
     }
   }, {
     key: 'seedCollectionWithStaticData',
@@ -126,15 +145,9 @@ var Seeder = function () {
       if (dynamicData && dynamicData.seed && typeof dynamicData.seed !== 'function') this.throwSeederError('seed property defined on the object passed to the dynamic option must be a function.');
 
       for (var currentItemIndex = 0; currentItemIndex < dynamicData.count; currentItemIndex += 1) {
-        var itemToCreate = dynamicData.seed(currentItemIndex, _faker2.default);
+        var itemToCreate = dynamicData.seed(currentItemIndex, _en2.default);
         this.createDataItem(itemToCreate);
       }
-    }
-  }, {
-    key: 'checkForExistingData',
-    value: function checkForExistingData(collection, modelCount) {
-      var existingCount = collection.find().count();
-      return modelCount ? existingCount >= modelCount : existingCount > 0;
     }
   }]);
 
