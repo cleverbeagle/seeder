@@ -109,7 +109,8 @@ var Seeder = function () {
         idOfItemCreated = this.collection.insert(dataItem);
       }
 
-      if (dataItem && dataItem.dependentData) {
+      // NOTE: Ensure parent data was actually created before attempting this.
+      if (idOfItemCreated && dataItem && dataItem.dependentData) {
         dataItem.dependentData(idOfItemCreated);
       }
     }

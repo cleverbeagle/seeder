@@ -30,8 +30,9 @@
   "devDependencies": {
     "babel-cli": "^6.24.1",
     "babel-plugin-transform-object-rest-spread": "^6.26.0",
-    "babel-preset-env": "^1.6.0",
+    "babel-preset-env": "^1.7.0",
     "jest": "^23.6.0",
+    "uglifyjs": "^2.4.11",
     "uuid": "^3.1.0"
   }
 }
