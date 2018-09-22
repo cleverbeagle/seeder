@@ -1,89 +1,123 @@
-import faker from 'faker';
+import faker from 'faker/locale/en';
 
 class Seeder {
   constructor(collection, options) {
-    if (!collection || !options) {
-      throw new Error('Please supply a MongoDB collection instance to seed and options for seeding. Usage: seeder(collection, options).');
-    }
+    if (!collection) this.throwSeederError('Please supply a MongoDB collection instance to seed.');
+    if (!this.isValidMongoDBCollection(collection)) this.throwSeederError('Value passed for "collection" is not a valid MongoDB collection.');
+
+    if (!options) this.throwSeederError('Please supply options for seeding.');
+    if (!options.environments) this.throwSeederError('Must pass an array of environments where seeding is allowed.');
+
+    if (!this.environmentAllowed(options.environments)) this.throwSeederError('Seeding not allowed in this environment.');;
+
+    if (!options.data) this.throwSeederError('Must pass a data object with static array, dynamic object, or both.');
+    if (options.data && !options.data.static && !options.data.dynamic) this.throwSeederError('Must assign a static array or dynamic object to data in options.');
+    
+    // NOTE: If collection and options are valid, set them on the instance for access inside of other methods.
+    this.collection = collection;
+    this.options = {
+      resetCollection: false,
+      seedIfExistingData: false,
+      ...options,
+    };
 
     if (Meteor && Meteor.isServer) {
-      this.seed(this.validateCollection(collection), options);
+      if (this.options.resetCollection) this.resetCollection();
+      this.seedCollection();
     } else {
-      throw new Error('Seeder is only intended to be run in a Meteor server environment. See http://cleverbeagle.com/packages/seeder/usage for usage instructions.');
+      this.throwSeederError('Seeder is only intended to be run in a Meteor server environment.');
     }
   }
 
-  validateCollection(collection) {
-    if (!collection._driver.mongo) throw new Error('Value passed for "collection" is not a MongoDB collection.');
-    return collection;
+  isValidMongoDBCollection(collection) {
+    return !!(collection && collection._driver && collection._driver.mongo); // eslint-disable-line
   }
 
-  seed(collection, options) {
-    const { data, model } = options;
-    if (data) this.sow(data, collection, options);
-    if (model) this.sow(model, collection, options);
-  }
-
-  sow(data, collection, options) {
-    if (options.wipe) collection.remove({});
-    const isDataArray = data instanceof Array;
-    const loopLength = isDataArray ? data.length : options.modelCount;
-    const hasData = options.noLimit ? false : this.checkForExistingData(collection, options.modelCount);
-    const collectionName = collection._name;
-    const isUsers = collectionName === 'users';
-    const environmentAllowed = this.environmentAllowed(options.environments);
-
-    if (!hasData && environmentAllowed) {
-      for (let i = 0; i < loopLength; i++) {
-        const value = isDataArray ? data[i] : data(i, faker);
-
-        try {
-          if (isUsers) {
-            this.createUser(collection, value, i); // Pass i for use with dependents.
-          } else {
-            this.createData(collection, value, i); // Pass i for use with dependents.
-          }
-        } catch (exception) {
-          console.warn(exception);
-        }
-      }
-    }
-  }
-
-  checkForExistingData(collection, modelCount) {
-    let existingCount = collection.find().count();
-    return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
+  throwSeederError(message) {
+    throw new Error(`[@cleverbeagle/seeder] ${message} See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.`);
   }
 
   environmentAllowed(environments) {
-    if (environments) return environments.indexOf(process.env.NODE_ENV) > -1;
-    return false;
+    return environments.indexOf(process.env.NODE_ENV) > -1;
   }
 
-  createUser(collection, user, iteration) {
-    const userToCreate = user;
-    const isExistingUserConditions = [{ 'emails.address': userToCreate.email }];
-    if (userToCreate.username) isExistingUserConditions.push({ username: userToCreate.username });
-    const isExistingUser = collection.findOne({ $or: isExistingUserConditions });
+  resetCollection() {
+    this.collection.remove({});
+  }
 
-    if (!isExistingUser) {
-      const roles = userToCreate.roles;
-      if (roles) delete userToCreate.roles;
-      const userId = Accounts.createUser(userToCreate);
-      if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
-      if (userToCreate.data) this.seedDependent(userId, userToCreate.data, iteration);
+  seedCollection() {
+    // NOTE: If options.seedIfExisting data is FALSE and the collection has data, stop immediately.
+    if (!this.options.seedIfExistingData && this.collectionHasExistingData(this.collection)) return;
+    if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
+    if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
+  }
+
+  collectionHasExistingData(collection, modelCount) {
+    let existingCount = this.collection.find().count();
+    return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
+  }
+
+  seedCollectionWithStaticData(staticData) {
+    if (!(staticData instanceof Array)) {
+      this.throwSeederError('Only an array can be passed to the static option.');
+    }
+
+    staticData.forEach((staticDataItem) => {
+      this.createDataItem(staticDataItem);
+    });
+  }
+
+  isUsersCollection() {
+    return this.collection._name === 'users';
+  }
+
+  createDataItem(dataItem) {
+    let idOfItemCreated;
+
+    if (this.isUsersCollection()) {
+      idOfItemCreated = this.createUser(dataItem);
+    } else {
+      idOfItemCreated = this.collection.insert(dataItem);
+    }
+
+    // NOTE: Ensure parent data was actually created before attempting this.
+    if (idOfItemCreated && dataItem && dataItem.dependentData) {
+      dataItem.dependentData(idOfItemCreated);  
     }
   }
 
-  createData(collection, value, iteration) {
-    const data = value.data; // Cache this as a variable before it gets sanitized by the insert.
-    const dataId = collection.insert(value);
-    if (data) this.seedDependent(dataId, data, iteration);
+  createUser(user) {
+    const userToCreate = user;
+
+    // NOTE: Check if email address or username (if applicable) passed already exists in Meteor.users.
+    const isExistingUserConditions = [{ 'emails.address': userToCreate.email }];
+    if (userToCreate.username) isExistingUserConditions.push({ username: userToCreate.username });
+    const isExistingUser = this.collection.findOne({ $or: isExistingUserConditions });
+
+    if (!isExistingUser) {
+      // NOTE: Extract roles array so we can pass userToCreate directly to Accounts.createUser.
+      const roles = userToCreate.roles;
+      if (roles) delete userToCreate.roles;
+
+      const userId = Accounts.createUser(userToCreate);
+      
+      // NOTE: If a roles array is passed and the global Roles (from the alanning:roles package) is present, assign roles to user.
+      if (roles && Roles !== 'undefined') Roles.addUsersToRoles(userId, roles);
+
+      return userId;
+    }
   }
 
-  seedDependent(dataId, data, iteration) {
-    const dependent = data(dataId, faker, iteration);
-    if (dependent && dependent.collection) this.seed(this.validateCollection(dependent.collection), dependent);
+  seedCollectionWithDynamicData(dynamicData) {
+    // NOTE: Checking if dynamicData is an actual object (not an array or other value).
+    if (Object.prototype.toString.call(dynamicData) !== '[object Object]') this.throwSeederError('Only an object can be passed to the dynamic option.');
+    if (dynamicData && dynamicData.count && typeof dynamicData.count !== 'number') this.throwSeederError('count property defined on the object passed to the dynamic option must be a number.');
+    if (dynamicData && dynamicData.seed && typeof dynamicData.seed !== 'function') this.throwSeederError('seed property defined on the object passed to the dynamic option must be a function.');
+
+    for (let currentItemIndex = 0; currentItemIndex < dynamicData.count; currentItemIndex += 1) {
+      const itemToCreate = dynamicData.seed(currentItemIndex, faker);
+      this.createDataItem(itemToCreate);
+    }
   }
 }
 
