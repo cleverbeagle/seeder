@@ -74,6 +74,10 @@ class Seeder {
   createDataItem(dataItem) {
     let idOfItemCreated;
 
+    // NOTE: Do this to avoid SimpleSchema package wiping dependent data before we use it.
+    const dependentData = dataItem && dataItem.dependentData;
+    if (dataItem.dependentData) delete dataItem.dependentData;
+
     if (this.isUsersCollection()) {
       idOfItemCreated = this.createUser(dataItem);
     } else {
@@ -81,8 +85,8 @@ class Seeder {
     }
 
     // NOTE: Ensure parent data was actually created before attempting this.
-    if (idOfItemCreated && dataItem && dataItem.dependentData) {
-      dataItem.dependentData(idOfItemCreated);  
+    if (idOfItemCreated && dependentData) {
+      dependentData(idOfItemCreated);  
     }
   }
 
