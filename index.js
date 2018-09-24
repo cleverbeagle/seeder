@@ -103,6 +103,10 @@ var Seeder = function () {
     value: function createDataItem(dataItem) {
       var idOfItemCreated = void 0;
 
+      // NOTE: Do this to avoid SimpleSchema package wiping dependent data before we use it.
+      var dependentData = dataItem && dataItem.dependentData;
+      if (dataItem.dependentData) delete dataItem.dependentData;
+
       if (this.isUsersCollection()) {
         idOfItemCreated = this.createUser(dataItem);
       } else {
@@ -110,8 +114,8 @@ var Seeder = function () {
       }
 
       // NOTE: Ensure parent data was actually created before attempting this.
-      if (idOfItemCreated && dataItem && dataItem.dependentData) {
-        dataItem.dependentData(idOfItemCreated);
+      if (idOfItemCreated && dependentData) {
+        dependentData(idOfItemCreated);
       }
     }
   }, {
