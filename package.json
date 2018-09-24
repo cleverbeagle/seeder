@@ -1,6 +1,6 @@
 {
   "name": "@cleverbeagle/seeder",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A database seeder for Meteor applications.",
   "main": "index.min.js",
   "scripts": {
