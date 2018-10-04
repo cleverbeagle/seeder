@@ -107,11 +107,14 @@ describe('@cleverbeagle/seeder', () => {
   });
 
   it('throws an error if run in a disallowed environment', () => {
+    const testOptions = getSeederOptions();
+    console.warn = jest.fn();
     process.env = { ...NODE_ENV_BEFORE_TEST };
     delete process.env.NODE_ENV;
+    
+    seeder(Documents, testOptions);
 
-    expect(() => seeder(Documents, { environments: ['development', 'staging'] }))
-      .toThrow('Seeding not allowed in this environment.');
+    expect(console.warn.mock.calls[0][0]).toBe('[@cleverbeagle/seeder] Seeding not allowed in this environment. See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.');
   });
 
   it('throws an error if data is not defined in options', () => {
@@ -206,16 +209,17 @@ describe('@cleverbeagle/seeder', () => {
   it('creates a user with dependentData if collection is Meteor.users using static data', () => {
     Accounts.createUser.mockImplementation(() => 'userId');
 
-    user.dependentData = jest.fn();
+    const testUser = { ...user };
+    testUser.dependentData = jest.fn();
 
     const testOptions = getSeederOptions();
     delete testOptions.data.dynamic;
-    testOptions.data.static = [user];
+    testOptions.data.static = [testUser];
 
     seeder(Users, testOptions);
 
-    expect(user.dependentData).toHaveBeenCalledTimes(1);
-    expect(user.dependentData).toHaveBeenCalledWith('userId');
+    expect(testUser.dependentData).toHaveBeenCalledTimes(1);
+    expect(testUser.dependentData).toHaveBeenCalledWith('userId');
   });
 
   it('does not create a user if the user already exist using static data', () => {
