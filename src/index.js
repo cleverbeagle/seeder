@@ -8,7 +8,10 @@ class Seeder {
     if (!options) this.throwSeederError('Please supply options for seeding.');
     if (!options.environments) this.throwSeederError('Must pass an array of environments where seeding is allowed.');
 
-    if (!this.environmentAllowed(options.environments)) this.throwSeederError('Seeding not allowed in this environment.');;
+    if (!this.environmentAllowed(options.environments)) {
+      this.throwSeederError('Seeding not allowed in this environment.', true);
+      return;
+    }
 
     if (!options.data) this.throwSeederError('Must pass a data object with static array, dynamic object, or both.');
     if (options.data && !options.data.static && !options.data.dynamic) this.throwSeederError('Must assign a static array or dynamic object to data in options.');
@@ -33,8 +36,14 @@ class Seeder {
     return !!(collection && collection._driver && collection._driver.mongo); // eslint-disable-line
   }
 
-  throwSeederError(message) {
-    throw new Error(`[@cleverbeagle/seeder] ${message} See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.`);
+  throwSeederError(message, consoleOnly) {
+    const error = `[@cleverbeagle/seeder] ${message} See http://cleverbeagle.com/packages/seeder/v2 for usage instructions.`;
+
+    if (consoleOnly) {
+      console.warn(error);
+    } else {
+      throw new Error(error);
+    }
   }
 
   environmentAllowed(environments) {
@@ -76,7 +85,6 @@ class Seeder {
 
     // NOTE: Do this to avoid SimpleSchema package wiping dependent data before we use it.
     const dependentData = dataItem && dataItem.dependentData;
-    if (dataItem.dependentData) delete dataItem.dependentData;
 
     if (this.isUsersCollection()) {
       idOfItemCreated = this.createUser(dataItem);
