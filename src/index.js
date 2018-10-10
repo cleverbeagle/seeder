@@ -56,12 +56,12 @@ class Seeder {
 
   seedCollection() {
     // NOTE: If options.seedIfExisting data is FALSE and the collection has data, stop immediately.
-    if (!this.options.seedIfExistingData && this.collectionHasExistingData(this.collection)) return;
+    if (!this.options.seedIfExistingData && this.collectionHasExistingData()) return;
     if (this.options.data.static) this.seedCollectionWithStaticData(this.options.data.static);
     if (this.options.data.dynamic) this.seedCollectionWithDynamicData(this.options.data.dynamic);
   }
 
-  collectionHasExistingData(collection, modelCount) {
+  collectionHasExistingData(modelCount) {
     let existingCount = this.collection.find().count();
     return modelCount ? (existingCount >= modelCount) : (existingCount > 0);
   }
